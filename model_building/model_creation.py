@@ -14,9 +14,30 @@ import copy
 
 class multi_output_model(nn.Module):
 
-    def __init__(self,) -> None:
+    def __init__(self,neuron_mid_layer:int=40,dropout:float=0.4) -> None:
         super(multi_output_model,self).__init__()
-        self.model_resnet = models.res
+        self.model_resnet = models.resnet18(pretrained=True)
+        number_features = self.model_resnet.fc.in_features
+        self.model_resnet.fc = nn.Identity()
+        self.middle_layer = nn.Linear(number_features, neuron_mid_layer)
+        self.relu_middle_layer = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        self.fc1 = nn.Linear(neuron_mid_layer, 1)
+        self.fc2 = nn.Linear(neuron_mid_layer,1)
+        self.fc3  = nn.Linear(neuron_mid_layer,1)
+        self.fc4  = nn.Linear(neuron_mid_layer,1)
+
+    def forward(self,x):
+        x = self.model_resnet(x)
+        x = self.middle_layer(x)
+        x = self.relu_middle_layer(x)
+        x = self.dropout(x)
+        output_1 = self.fc1(x)
+        output_2 = self.fc2(x)
+        output_3 = self.fc3(x)
+        output_4 = self.fc4(x)
+
+        return output_1, output_2, output_3, output_4
 
 class colas_model:
 
@@ -25,7 +46,7 @@ class colas_model:
         self.dataloaders = dataloaders
         pass
 
-    def train(self, crierion, optimizer, scheduler, num_epochs=25):
+    def train(self, criterion, optimizer, scheduler, num_epochs=25):
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')
             print('-' * 10)
