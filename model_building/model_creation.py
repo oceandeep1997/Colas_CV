@@ -12,7 +12,11 @@ import os
 import copy
 
 
-# class
+class multi_output_model(nn.Module):
+
+    def __init__(self,) -> None:
+        super(multi_output_model,self).__init__()
+        self.model_resnet = models.res
 
 class colas_model:
 
