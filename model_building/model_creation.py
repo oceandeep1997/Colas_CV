@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch.backends.cudnn as cudnn
+from torch.utils.data import DataLoader
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
@@ -10,6 +11,7 @@ import matplotlib.pyplot as plt
 import time
 import os
 import copy
+import tqdm
 
 
 class multi_output_model(nn.Module):
@@ -41,61 +43,86 @@ class multi_output_model(nn.Module):
 
 class colas_model:
 
-    def __init__(self,model, dataloaders) -> None:
-        self.model = model
-        self.dataloaders = dataloaders
-        pass
+    def __init__(self,model:multi_output_model, number_outputs:int=4) -> None:
+        self.model = model 
+        self.number_outputs = number_outputs
+ 
+    def train(self, train_data, val_data, optimizer, batch_size , num_epochs=25):
+        train_dataloader = DataLoader(train_data,batch_size=batch_size,shuffle=True)
+        val_dataloader = DataLoader(val_data,batch_size=batch_size,shuffle=True)
 
-    def train(self, criterion, optimizer, scheduler, num_epochs=25):
+
+        for i in range(1,self.number_outputs+1):
+            globals[f'criterion_output_{i}'] = nn.BCELoss()
+
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if use_cuda else "cpu")
+        if use_cuda:
+            self.model = self.model.cuda()
+            globals[f'criterion_output_{i}'] = globals[f'criterion_output_{i}'].cuda()        
+
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')
-            print('-' * 10)
+            
+            for train_input, train_labels in tqdm(train_dataloader):
+                train_labels = train_labels.to(device)
+                train_input = train_input.to(device)
+                outputs = self.model(train_input)
+                batch_loss = 0
+                for i in self.number_outputs:
+                    globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i]) 
+                    batch_loss += globals[f"loss_output_{i}"]
 
-            # Each epoch has a training and validation phase
-            for phase in ['train', 'val']:
-                if phase == 'train':
-                    self.model.train()  # Set model to training mode
-                else:
-                    self.model.eval()   # Set model to evaluate mode
+                self.model.zero_grad()
+                batch_loss.backward()
+                optimizer.step()
+            # print('-' * 10)
 
-                running_loss = 0.0
-                running_corrects = 0
+            # # Each epoch has a training and validation phase
+            # for phase in ['train', 'val']:
+            #     if phase == 'train':
+            #         self.model.train()  # Set model to training mode
+            #     else:
+            #         self.model.eval()   # Set model to evaluate mode
 
-                # Iterate over data.
-                for inputs, labels in dataloaders[phase]:
-                    inputs = inputs.to(device)
-                    labels = labels.to(device)
+            #     running_loss = 0.0
+            #     running_corrects = 0
 
-                    # zero the parameter gradients
-                    optimizer.zero_grad()
+            #     # Iterate over data.
+            #     for inputs, labels in dataloaders[phase]:
+            #         inputs = inputs.to(device)
+            #         labels = labels.to(device)
 
-                    # forward
-                    # track history if only in train
-                    with torch.set_grad_enabled(phase == 'train'):
-                        outputs = model(inputs)
-                        _, preds = torch.max(outputs, 1)
-                        loss = criterion(outputs, labels)
+            #         # zero the parameter gradients
+            #         optimizer.zero_grad()
 
-                        # backward + optimize only if in training phase
-                        if phase == 'train':
-                            loss.backward()
-                            optimizer.step()
+            #         # forward
+            #         # track history if only in train
+            #         with torch.set_grad_enabled(phase == 'train'):
+            #             outputs = model(inputs)
+            #             _, preds = torch.max(outputs, 1)
+            #             loss = criterion(outputs, labels)
 
-                    # statistics
-                    running_loss += loss.item() * inputs.size(0)
-                    running_corrects += torch.sum(preds == labels.data)
-                if phase == 'train':
-                    scheduler.step()
+            #             # backward + optimize only if in training phase
+            #             if phase == 'train':
+            #                 loss.backward()
+            #                 optimizer.step()
 
-                epoch_loss = running_loss / dataset_sizes[phase]
-                epoch_acc = running_corrects.double() / dataset_sizes[phase]
+            #         # statistics
+            #         running_loss += loss.item() * inputs.size(0)
+            #         running_corrects += torch.sum(preds == labels.data)
+            #     if phase == 'train':
+            #         scheduler.step()
 
-                print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+            #     epoch_loss = running_loss / dataset_sizes[phase]
+            #     epoch_acc = running_corrects.double() / dataset_sizes[phase]
 
-                # deep copy the model
-                if phase == 'val' and epoch_acc > best_acc:
-                    best_acc = epoch_acc
-                    best_model_wts = copy.deepcopy(model.state_dict())
+            #     print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
+
+            #     # deep copy the model
+            #     if phase == 'val' and epoch_acc > best_acc:
+            #         best_acc = epoch_acc
+            #         best_model_wts = copy.deepcopy(model.state_dict())
 
             print()
 
