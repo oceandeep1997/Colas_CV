@@ -12,6 +12,8 @@ import time
 import os
 import copy
 import tqdm
+import ipdb
+import sys
 
 
 class multi_output_model(nn.Module):
@@ -46,6 +48,7 @@ class colas_model:
     def __init__(self,model:multi_output_model, number_outputs:int=4) -> None:
         self.model = model 
         self.number_outputs = number_outputs
+        self.is_model_trained = False
  
     def train(self, train_data, val_data, optimizer, batch_size , num_epochs=25):
         train_dataloader = DataLoader(train_data,batch_size=batch_size,shuffle=True)
@@ -64,6 +67,9 @@ class colas_model:
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')
             
+            total_loss_train = 0
+            total_acc_train = 0
+
             for train_input, train_labels in tqdm(train_dataloader):
                 train_labels = train_labels.to(device)
                 train_input = train_input.to(device)
@@ -73,9 +79,40 @@ class colas_model:
                     globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i]) 
                     batch_loss += globals[f"loss_output_{i}"]
 
+                total_loss_train += batch_loss
+
                 self.model.zero_grad()
                 batch_loss.backward()
                 optimizer.step()
+
+        self.is_model_trained = True
+
+    def predict_proba(self,test_data, batch_size, ):
+        # if not self.is_model_trained:
+        #     raise AttributeError(
+        #         "the model has not yet been trained, train it first before predictions"
+        #     )
+        #     sys.exit()
+        
+        test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if use_cuda else "cpu")
+
+        if use_cuda:
+            self.model = self.model.cuda()
+        
+        predictions = []
+        with torch.no_grad():
+
+            for test_input, test_label in test_dataloader:
+
+                test_label = test_label.to(device)
+                test_input = test_input.to(device)
+
+                output = self.model(test_input)
+                predictions.append(output.detach().cpu().numpy())
+
+        return predictions
             # print('-' * 10)
 
             # # Each epoch has a training and validation phase
@@ -124,12 +161,12 @@ class colas_model:
             #         best_acc = epoch_acc
             #         best_model_wts = copy.deepcopy(model.state_dict())
 
-            print()
+            # print()
 
-        time_elapsed = time.time() - since
-        print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-        print(f'Best val Acc: {best_acc:4f}')
+        # time_elapsed = time.time() - since
+        # print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
+        # print(f'Best val Acc: {best_acc:4f}')
 
-        # load best model weights
-        model.load_state_dict(best_model_wts)
-        return model
+        # # load best model weights
+        # model.load_state_dict(best_model_wts)
+        # return model
