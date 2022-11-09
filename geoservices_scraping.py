@@ -2,7 +2,7 @@ import urllib.error
 from urllib.request import urlretrieve
 import warnings
 import pickle
-from pyunpack import Archive
+from py7zr import unpack_7zarchive
 
 import re
 import os
@@ -80,6 +80,8 @@ class ScrapeCoordinates:
         # Creating the folder to unpack the downloaded zip files in
         if 'Unpacking' not in os.listdir():
             os.mkdir('Unpacking')
+        if not [f for f in shutil.get_unpack_formats() if f[0] == '7zip']:
+            shutil.register_unpack_format(name='7zip', extensions=['.7z'], function=unpack_7zarchive)
 
         # Create list for urls that were not downloadable
         url_errors = []
@@ -92,7 +94,7 @@ class ScrapeCoordinates:
                 url_errors.append(url)
                 continue
             # Unpacking the compressed file to the folder "Unpacking"
-            Archive(filename=file_name).extractall('Unpacking')
+            shutil.unpack_archive(filename=file_name, extract_dir='Unpacking')
             # Looping over all the files in the folder "Unpacking"
             for path, folders, file_names in os.walk('Unpacking'):
                 # If there is an "AERODROME.shp" file in one of the folders
@@ -161,7 +163,7 @@ class ScrapePictures:
         else:
             pbar = tqdm_jupyter(urls)
         for url in pbar:
-            pbar.set_description(f'Downloading partial files ...: {re.search("[1-9]+$", url)}/{len(pbar)}')
+            pbar.set_description(f'Downloading partial files: {re.search("[1-9]+$", url).group()}/{len(pbar)}')
             try:
                 urlretrieve(url, f'Unpacking/{url.split("/")[-1]}')
             except urllib.error.URLError:
@@ -179,7 +181,7 @@ class ScrapePictures:
             source_path: path where the partial files you want to join can be found
             dest_file: the name of the file with the joined content"""
 
-        partial_files = [file for file in os.listdir(source_path) if file.startswith(file_name)]
+        partial_files = sorted([file for file in os.listdir(source_path) if file.startswith(file_name)])
         with open(dest_file, 'ab') as output_file:
             for partial_file in partial_files:
                 with open(f'{source_path}/{partial_file}', 'rb') as input_file:
@@ -243,6 +245,9 @@ class ScrapePictures:
             urls_file: path to pickle file where the urls were stored"""
         if images_path not in os.listdir():
             os.mkdir(images_path)
+        # Adding the unpacker to the formats
+        if not [f for f in shutil.get_unpack_formats() if f[0] == '7zip']:
+            shutil.register_unpack_format(name='7zip', extensions=['.7z'], function=unpack_7zarchive)
         # Loading the dictionary with the urls to download the images from
         with open(urls_file, 'rb') as f:
             urls_dict = pickle.load(f)
@@ -260,10 +265,10 @@ class ScrapePictures:
         else:
             pbar = tqdm_jupyter(urls_dict)
         for joined_name in pbar:
-            pbar.set_description(f'Downloading department: {joined_name}')
+            pbar.set_description(f'Downloading department: {re.search("_(D[0-9]+)_", joined_name).groups()[0]}')
             self.download_files(urls=urls_dict[joined_name])
             self.join_partial_zip_files(file_name=joined_name, source_path='Unpacking', dest_file='Unpacking/joined.7z')
-            Archive(filename='Unpacking/joined.7z').extractall('Unpacking')
+            shutil.unpack_archive(filename='Unpacking/joined.7z', extract_dir='Unpacking')
             # This variable will capture the names of the images we would like to keep
             relevant_names = None
             # Extracting the names of the relevant files (without file extensions)
