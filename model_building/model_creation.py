@@ -43,6 +43,39 @@ class multi_output_model(nn.Module):
 
         return output_1, output_2, output_3, output_4
 
+data_dir = '/data/train'
+
+def create_and_load_train_val_dataloaders(datadir, valid_size = .2):
+    train_transforms = transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    val_transforms = transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    train_data = datasets.ImageFolder(datadir,       
+                    transform=train_transforms)
+    val_data = datasets.ImageFolder(datadir,
+                    transform=val_transforms)
+    num_train = len(train_data)
+    indices = list(range(num_train))
+    split = int(np.floor(valid_size * num_train))
+    np.random.shuffle(indices)
+    from torch.utils.data.sampler import SubsetRandomSampler
+    train_idx, test_idx = indices[split:], indices[:split]
+    train_sampler = SubsetRandomSampler(train_idx)
+    test_sampler = SubsetRandomSampler(test_idx)
+    trainloader = torch.utils.data.DataLoader(train_data,
+                   sampler=train_sampler, batch_size=64)
+    testloader = torch.utils.data.DataLoader(test_data,
+                   sampler=test_sampler, batch_size=64)
+    return trainloader, testloader
+
 class colas_model:
 
     def __init__(self,model:multi_output_model, number_outputs:int=4) -> None:
