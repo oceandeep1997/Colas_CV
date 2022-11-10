@@ -18,11 +18,14 @@ import sys
 
 def create_image_transform(random_size_crop:int = 224):
     train_transforms = transforms.Compose([
+        transforms.ToPILImage(),
         transforms.RandomResizedCrop(random_size_crop),
-        transforms.RandomHorizontalFlip(),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
+    return train_transforms
 
 class Colas_Dataset(Dataset):
     def __init__(self, data, path , transform = None):
@@ -45,7 +48,7 @@ class Colas_Dataset(Dataset):
 
 class multi_output_model(nn.Module):
 
-    def __init__(self,neuron_mid_layer:int=40,dropout:float=0.4) -> None:
+    def __init__(self,neuron_mid_layer:int=40,dropout:float=0.4,number_classes:int=5) -> None:
         super(multi_output_model,self).__init__()
         self.model_resnet = models.resnet18(pretrained=True)
         number_features = self.model_resnet.fc.in_features
@@ -57,6 +60,8 @@ class multi_output_model(nn.Module):
         self.fc2 = nn.Linear(neuron_mid_layer,1)
         self.fc3  = nn.Linear(neuron_mid_layer,1)
         self.fc4  = nn.Linear(neuron_mid_layer,1)
+        self.fc_final = nn.Linear(neuron_mid_layer, number_classes)
+        self.final_sigmoid = nn.Sigmoid()
 
     def forward(self,x):
         x = self.model_resnet(x)
@@ -67,15 +72,17 @@ class multi_output_model(nn.Module):
         output_2 = self.fc2(x)
         output_3 = self.fc3(x)
         output_4 = self.fc4(x)
+        final_output = self.fc_final(x)
+        final_output = self.final_sigmoid(x)
 
-        return output_1, output_2, output_3, output_4
+        return final_output #output_1, output_2, output_3, output_4
 
 data_dir = '/data/train'
 
 
 class colas_model:
 
-    def __init__(self,model:multi_output_model, number_outputs:int=4) -> None:
+    def __init__(self,model:multi_output_model, number_outputs:int=5) -> None:
         self.model = model 
         self.number_outputs = number_outputs
         self.is_model_trained = False
@@ -105,12 +112,12 @@ class colas_model:
                 train_input = train_input.to(device)
                 outputs = self.model(train_input)
                 batch_loss = 0
-                for i in self.number_outputs:
-                    loss_output = global_criterion(outputs, train_labels)
-                    globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i]) 
-                    batch_loss += globals[f"loss_output_{i}"]
-
-
+                # for i in self.number_outputs:
+                #     globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i]) 
+                #     batch_loss += globals[f"loss_output_{i}"]
+            
+                loss_output = global_criterion(outputs, train_labels)
+                batch_loss = loss_output
                 total_loss_train += batch_loss
 
                 self.model.zero_grad()
@@ -120,11 +127,11 @@ class colas_model:
         self.is_model_trained = True
 
     def predict_proba(self,test_data, batch_size, ):
-        # if not self.is_model_trained:
-        #     raise AttributeError(
-        #         "the model has not yet been trained, train it first before predictions"
-        #     )
-        #     sys.exit()
+        if not self.is_model_trained:
+            raise AttributeError(
+                "the model has not yet been trained, train it first before predictions"
+            )
+            sys.exit()
         
         test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
         use_cuda = torch.cuda.is_available()
