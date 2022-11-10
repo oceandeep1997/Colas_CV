@@ -29,7 +29,7 @@ def create_image_transform(random_size_crop:int = 224):
 
 def compute_accuracy_values(y_true, y_predicted):
     y_classes = 1*(y_predicted>0.5)
-    acc = (y_true == y_classes).sum().item() 
+    acc = (1*(y_true == y_classes)).item()
     return acc
 
 class Colas_Dataset(Dataset):
