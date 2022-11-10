@@ -3,11 +3,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
 import torch.backends.cudnn as cudnn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
 import matplotlib.pyplot as plt
+import matplotlib.image as img
 import time
 import os
 import copy
@@ -15,6 +16,32 @@ import tqdm
 import ipdb
 import sys
 
+def create_image_transform(random_size_crop:int = 224):
+    train_transforms = transforms.Compose([
+        transforms.RandomResizedCrop(random_size_crop),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+
+class Colas_Dataset(Dataset):
+    def __init__(self, data, path , transform = None):
+        super().__init__()
+        self.data = data.values
+        self.path = path
+        self.transform = transform
+        
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self,index):
+        img_name = self.data[index][0]
+        labels = self.data[index][1:]
+        img_path = os.path.join(self.path, img_name)
+        image = img.imread(img_path)
+        if self.transform is not None:
+            image = self.transform(image)
+        return image, labels
 
 class multi_output_model(nn.Module):
 
@@ -45,36 +72,6 @@ class multi_output_model(nn.Module):
 
 data_dir = '/data/train'
 
-def create_and_load_train_val_dataloaders(datadir, valid_size = .2):
-    train_transforms = transforms.Compose([
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-    val_transforms = transforms.Compose([
-        transforms.RandomResizedCrop(224),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
-    train_data = datasets.ImageFolder(datadir,       
-                    transform=train_transforms)
-    val_data = datasets.ImageFolder(datadir,
-                    transform=val_transforms)
-    num_train = len(train_data)
-    indices = list(range(num_train))
-    split = int(np.floor(valid_size * num_train))
-    np.random.shuffle(indices)
-    from torch.utils.data.sampler import SubsetRandomSampler
-    train_idx, test_idx = indices[split:], indices[:split]
-    train_sampler = SubsetRandomSampler(train_idx)
-    test_sampler = SubsetRandomSampler(test_idx)
-    trainloader = torch.utils.data.DataLoader(train_data,
-                   sampler=train_sampler, batch_size=64)
-    testloader = torch.utils.data.DataLoader(test_data,
-                   sampler=test_sampler, batch_size=64)
-    return trainloader, testloader
 
 class colas_model:
 
@@ -87,7 +84,7 @@ class colas_model:
         train_dataloader = DataLoader(train_data,batch_size=batch_size,shuffle=True)
         val_dataloader = DataLoader(val_data,batch_size=batch_size,shuffle=True)
 
-
+        global_criterion = nn.BCELoss()
         for i in range(1,self.number_outputs+1):
             globals[f'criterion_output_{i}'] = nn.BCELoss()
 
@@ -109,8 +106,10 @@ class colas_model:
                 outputs = self.model(train_input)
                 batch_loss = 0
                 for i in self.number_outputs:
+                    loss_output = global_criterion(outputs, train_labels)
                     globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i]) 
                     batch_loss += globals[f"loss_output_{i}"]
+
 
                 total_loss_train += batch_loss
 
