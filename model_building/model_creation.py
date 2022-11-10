@@ -1,8 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.optim import lr_scheduler
-import torch.backends.cudnn as cudnn
 from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import torchvision
@@ -11,10 +8,10 @@ import matplotlib.pyplot as plt
 import matplotlib.image as img
 import time
 import os
-import copy
 import tqdm
 import ipdb
 import sys
+import pandas as pd
 
 def create_image_transform(random_size_crop:int = 224):
     train_transforms = transforms.Compose([
@@ -129,8 +126,8 @@ class colas_model:
                     ipdb.set_trace()
                 total_loss_train += batch_loss
 
-                acc = compute_accuracy_values(train_labels, outputs)
-                total_acc_train += acc    
+                accuracy_train = compute_accuracy_values(train_labels, outputs)
+                total_acc_train += accuracy_train    
 
                 self.model.zero_grad()
                 batch_loss.backward()
@@ -150,12 +147,16 @@ class colas_model:
                     batch_loss = global_criterion(outputs, val_labels)
                     total_loss_val += batch_loss.item()
 
-                    acc = compute_accuracy_values(val_labels, outputs)
-                    total_acc_val += acc
-
-            print(
-                f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputs*len(train_data): .3f} | Train Accuracy: {total_acc_train / self.number_outputs*len(train_data): .3f} | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} | Val Accuracy: {total_acc_val / self.number_outputs*len(val_data): .3f}"""
-            )
+                    accuracy_batch = compute_accuracy_values(val_labels, outputs)
+                    total_acc_val += accuracy_batch
+            try:
+                train_accuracy = pd.DataFrame(total_acc_train)
+                test_accuracy = pd.DataFrame(total_acc_val)
+                print(
+                    f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputs*len(train_data): .3f} | Train Accuracy: {train_accuracy.mean(): .3f} | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} | Val Accuracy: {test_accuracy.mean(): .3f}"""
+                )
+            except:
+                ipdb.set_trace()
 
         self.is_model_trained = True
 
