@@ -92,10 +92,11 @@ class colas_model:
         self.number_outputs = number_outputs
         self.is_model_trained = False
  
-    def train(self, train_data, val_data, optimizer, batch_size , num_epochs=25):
+    def train(self, train_data, val_data, learning_rate:float, batch_size:int=32 , num_epochs=25):
         train_dataloader = DataLoader(train_data,batch_size=batch_size,shuffle=True)
         val_dataloader = DataLoader(val_data,batch_size=batch_size,shuffle=True)
 
+        optimizer = torch.optim.Adamax(self.model.parameters, lr=learning_rate)
         global_criterion = nn.BCELoss()
         for i in range(1,self.number_outputs+1):
             globals[f'criterion_output_{i}'] = nn.BCELoss()
