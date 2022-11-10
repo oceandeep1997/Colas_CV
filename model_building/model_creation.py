@@ -98,14 +98,15 @@ class colas_model:
 
         optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
         global_criterion = nn.BCELoss()
-        for i in range(1,self.number_outputs+1):
-            globals[f'criterion_output_{i}'] = nn.BCELoss()
+        # for i in range(1,self.number_outputs+1):
+        #     globals[f'criterion_output_{i}'] = nn.BCELoss()
 
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
         if use_cuda:
             self.model = self.model.cuda()
-            globals[f'criterion_output_{i}'] = globals[f'criterion_output_{i}'].cuda()        
+            # globals[f'criterion_output_{i}'] = globals[f'criterion_output_{i}'].cuda() 
+            global_criterion = global_criterion.cuda()       
 
         for epoch in range(num_epochs):
             print(f'Epoch {epoch}/{num_epochs - 1}')
