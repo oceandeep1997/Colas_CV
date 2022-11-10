@@ -27,6 +27,11 @@ def create_image_transform(random_size_crop:int = 224):
     ])
     return train_transforms
 
+def compute_accuracy_values(y_true, y_predicted):
+    y_classes = 1*(y_predicted>0.5)
+    acc = (y_true == y_classes).sum().item() 
+    return acc
+
 class Colas_Dataset(Dataset):
     def __init__(self, data, path , transform = None):
         super().__init__()
@@ -111,18 +116,44 @@ class colas_model:
                 train_labels = train_labels.to(device)
                 train_input = train_input.to(device)
                 outputs = self.model(train_input)
-                batch_loss = 0
+                # batch_loss = 0
                 # for i in self.number_outputs:
                 #     globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i]) 
                 #     batch_loss += globals[f"loss_output_{i}"]
-            
-                loss_output = global_criterion(outputs, train_labels)
-                batch_loss = loss_output
+        
+                batch_loss = global_criterion(outputs, train_labels)
                 total_loss_train += batch_loss
+
+                acc = compute_accuracy_values(train_labels, outputs)
+                total_acc_val += acc    
 
                 self.model.zero_grad()
                 batch_loss.backward()
                 optimizer.step()
+            
+            total_acc_val = 0
+            total_loss_val = 0
+
+            with torch.no_grad():
+                for val_input, val_labels in val_dataloader:
+
+                    val_labels = val_labels.to(device)
+                    val_input = val_input.to(device)
+
+                    outputs = self.model(val_input)
+
+                    batch_loss = global_criterion(outputs, val_labels)
+                    total_loss_val += batch_loss.item()
+
+                    acc = compute_accuracy_values(val_labels, outputs)
+                    total_acc_val += acc
+
+            print(
+                f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputslen(train_data): .3f} 
+                | Train Accuracy: {total_acc_train / self.number_outputs*len(train_data): .3f} 
+                | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} 
+                | Val Accuracy: {total_acc_val / self.number_outputs*len(val_data): .3f}"""
+            )
 
         self.is_model_trained = True
 
@@ -152,6 +183,35 @@ class colas_model:
                 predictions.append(output.detach().cpu().numpy())
 
         return predictions
+
+    def predict(self,test_data, batch_size, ):
+        if not self.is_model_trained:
+            raise AttributeError(
+                "the model has not yet been trained, train it first before predictions"
+            )
+            sys.exit()
+        
+        test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+        use_cuda = torch.cuda.is_available()
+        device = torch.device("cuda" if use_cuda else "cpu")
+
+        if use_cuda:
+            self.model = self.model.cuda()
+        
+        predictions = []
+        with torch.no_grad():
+
+            for test_input, test_label in test_dataloader:
+
+                test_label = test_label.to(device)
+                test_input = test_input.to(device)
+
+                outputs = self.model(test_input)
+                predictions.append((1*(outputs>0.5)).detach().cpu().numpy())
+
+        return predictions
+
+
             # print('-' * 10)
 
             # # Each epoch has a training and validation phase
