@@ -17,6 +17,7 @@ import sys
 from model_building.model_creation import *
 import config
 import pandas as pd
+
 # from tensorflow.keras.utils import load_img
 # from tensorflow.keras.utils import img_to_array
 from sklearn.model_selection import train_test_split
@@ -29,8 +30,17 @@ if __name__ == "__main__":
         [int(0.8 * len(train_labels)), int(0.9 * len(train_labels))],
     )
     train_transform = create_image_transform()
-    train_dataset = Colas_Dataset(df_train, os.path.join(dataset_path,"train"),transform = train_transform)
-    val_dataset = Colas_Dataset(df_val, os.path.join(dataset_path,"train"),transform = train_transform)
+    train_dataset = Colas_Dataset(
+        df_train, os.path.join(dataset_path, "train"), transform=train_transform
+    )
+    val_dataset = Colas_Dataset(
+        df_val, os.path.join(dataset_path, "train"), transform=train_transform
+    )
     model_cnn = multi_output_model()
     colas_model = colas_model(model_cnn, 5)
-    colas_model.train(train_data = train_dataset, val_data = val_dataset,learning_rate= config.learning_rate, batch_size = config.batch_size,)
+    colas_model.train(
+        train_data=train_dataset,
+        val_data=val_dataset,
+        learning_rate=config.learning_rate,
+        batch_size=config.batch_size,
+    )
