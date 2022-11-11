@@ -39,7 +39,7 @@ if __name__ == "__main__":
     val_dataset = Colas_Dataset(
         df_val, os.path.join(dataset_path, "train"), transform=train_transform
     )
-    model_cnn = multi_output_model()
+    model_cnn = multi_output_model_bis()
     colas_model = colas_model(model_cnn, 5)
     colas_model.train(
         train_data=train_dataset,
