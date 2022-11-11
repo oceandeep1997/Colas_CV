@@ -17,7 +17,6 @@ import sys
 from model_building.model_creation import *
 import config
 import pandas as pd
-
 # from tensorflow.keras.utils import load_img
 # from tensorflow.keras.utils import img_to_array
 from sklearn.model_selection import train_test_split

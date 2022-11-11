@@ -161,3 +161,5 @@ cython_debug/
 
 ./.venv
 .venv_colas_cv/*
+Data/images_train_subset/*
+*.csv
