@@ -89,6 +89,45 @@ class multi_output_model(nn.Module):
 
         return final_output  # output_1, output_2, output_3, output_4
 
+    
+class multi_output_model_bis(nn.Module):
+    def __init__(
+        self, neuron_mid_layer: int = 40, dropout: float = 0.4, number_classes: int = 5
+    ) -> None:
+        super(multi_output_model, self).__init__()
+        self.model_resnet = models.resnet18(pretrained=True)
+        number_features = self.model_resnet.fc.in_features
+        self.model_resnet.fc = nn.Identity()
+        self.middle_layer = nn.Linear(number_features, neuron_mid_layer)
+        self.relu_middle_layer = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        self.fc1 = nn.Linear(neuron_mid_layer, 1)
+        self.fc2 = nn.Linear(neuron_mid_layer, 1)
+        self.fc3 = nn.Linear(neuron_mid_layer, 1)
+        self.fc4 = nn.Linear(neuron_mid_layer, 1)
+        self.fc5 = nn.Linear(neuron_mid_layer, 1)
+        self.fc_final = nn.Linear(neuron_mid_layer, number_classes)
+        self.final_sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.model_resnet(x)
+        x = self.middle_layer(x)
+        x = self.relu_middle_layer(x)
+        x = self.dropout(x)
+        output_1 = self.fc1(x)
+        output_2 = self.fc2(x)
+        output_3 = self.fc3(x)
+        output_4 = self.fc4(x)
+        output_5 = self.fc5(x)
+        output_1 = self.final_sigmoid(output_1)
+        output_2 = self.final_sigmoid(output_1)
+        output_3 = self.final_sigmoid(output_1)
+        output_4 = self.final_sigmoid(output_1)
+        output_5 = self.final_sigmoid(output_1)
+        # final_output = self.fc_final(x)
+        # final_output = self.final_sigmoid(final_output)
+
+        return output_1, output_2, output_3, output_4, output_5
 
 data_dir = "/data/train"
 
@@ -113,14 +152,14 @@ class colas_model:
 
         optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
         global_criterion = nn.BCELoss(class_imbalances)
-        # for i in range(1,self.number_outputs+1):
-        #     globals[f'criterion_output_{i}'] = nn.BCELoss()
+        for i in range(1,self.number_outputs+1):
+            globals()[f'criterion_output_{i}'] = nn.BCELoss(class_imbalances[i])
 
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
         if use_cuda:
             self.model = self.model.cuda()
-            # globals[f'criterion_output_{i}'] = globals[f'criterion_output_{i}'].cuda()
+            globals()[f'criterion_output_{i}'] = globals()[f'criterion_output_{i}'].cuda()
             global_criterion = global_criterion.cuda()
 
         for epoch in range(num_epochs):
@@ -133,15 +172,19 @@ class colas_model:
                 train_labels = train_labels.to(device)
                 train_input = train_input.to(device)
                 outputs = self.model(train_input)
-                # batch_loss = 0
-                # for i in self.number_outputs:
-                #     globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i])
-                #     batch_loss += globals[f"loss_output_{i}"]
-
+                
+                batch_loss = 0
                 try:
-                    batch_loss = global_criterion(outputs, train_labels)
+                    for i in range(1,self.number_outputs+1):
+                        globals()[f"loss_output_{i}"] = globals()[f'criterion_output_{i}'](outputs[i],train_labels[i])
+                        batch_loss += globals()[f"loss_output_{i}"]
                 except:
                     ipdb.set_trace()
+
+                # try:
+                #     batch_loss = global_criterion(outputs, train_labels)
+                # except:
+                #     ipdb.set_trace()
                 total_loss_train += batch_loss
 
                 accuracy_train = compute_accuracy_values(train_labels, outputs)
