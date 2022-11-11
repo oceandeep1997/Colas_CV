@@ -21,13 +21,17 @@ import pandas as pd
 # from tensorflow.keras.utils import img_to_array
 from sklearn.model_selection import train_test_split
 
-dataset_path = "/home/jovyan/hfactory_magic_folders/colas_data_challenge/computer_vision_challenge/dataset/"
+# dataset_path = "/home/jovyan/hfactory_magic_folders/colas_data_challenge/computer_vision_challenge/dataset/"
+dataset_path = os.path.join("Data","images_train_subset")
 if __name__ == "__main__":
-    train_labels = pd.read_csv(dataset_path + "labels_train.csv")
+    train_labels = pd.read_csv("labels_train.csv")
     df_train, df_val, df_test = np.split(
         train_labels.sample(frac=1, random_state=42),
         [int(0.8 * len(train_labels)), int(0.9 * len(train_labels))],
     )
+    class_proportions = np.flip(df_train.iloc[:,1:].apply(pd.Series.value_counts).T.values,axis=1)
+    class_weights = 1 / (class_proportions / class_proportions.sum(axis=1).reshape((-1,1)))
+    class_weights = torch.tensor(class_weights)
     train_transform = create_image_transform()
     train_dataset = Colas_Dataset(
         df_train, os.path.join(dataset_path, "train"), transform=train_transform
@@ -40,6 +44,7 @@ if __name__ == "__main__":
     colas_model.train(
         train_data=train_dataset,
         val_data=val_dataset,
+        class_imbalances=class_weights,
         learning_rate=config.learning_rate,
         batch_size=config.batch_size,
     )
