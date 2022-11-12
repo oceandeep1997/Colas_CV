@@ -154,7 +154,7 @@ class colas_model:
         optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
         global_criterion = nn.BCELoss(class_imbalances)
         for i in range(1,self.number_outputs+1):
-            globals()[f'criterion_output_{i}'] = nn.CrossEntropyLoss(class_imbalances[i-1])
+            globals()[f'criterion_output_{i}'] = nn.CrossEntropyLoss()#class_imbalances[i-1])
 
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
@@ -216,14 +216,14 @@ class colas_model:
 
             total_acc_val = []
             total_loss_val = 0
-            ipdb.set_trace()
+            # ipdb.set_trace()
             with torch.no_grad():
                 for val_input, val_labels in val_dataloader:
 
                     val_labels = val_labels.to(device)
                     val_input = val_input.to(device)
                     outputs = self.model(val_input)
-                    torch_outputs_class = torch.zeros(size=train_labels.shape)
+                    torch_outputs_class = torch.zeros(size=val_labels.shape)
                     batch_loss = 0
                     
                     for i in range(1,self.number_outputs+1):
@@ -252,7 +252,7 @@ class colas_model:
             for i in range(self.number_outputs):
                 f1_scores_train[i] = f1_score(y_true_train.iloc[:,i],y_preds_train.iloc[:,i])
                 f1_scores_val[i] = f1_score(y_true_val.iloc[:,i],y_preds_val.iloc[:,i])
-
+            # ipdb.set_trace()
                     # accuracy_batch = compute_accuracy_values(val_labels, outputs)
                     # total_acc_val += list(accuracy_batch)
             try:
