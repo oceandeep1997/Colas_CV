@@ -12,8 +12,7 @@ import tqdm
 import ipdb
 import sys
 import pandas as pd
-from sklearn.metrics import f1_score, accuracy_score, recall_score, precision_score
-
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 def create_image_transform(random_size_crop: int = 224):
     train_transforms = transforms.Compose(
@@ -36,6 +35,7 @@ def compute_accuracy_values(y_true, y_predicted):
     except:
         ipdb.set_trace()
     return acc
+
 
 
 class Colas_Dataset(Dataset):
@@ -170,13 +170,16 @@ class colas_model:
             total_loss_train = 0
             total_acc_train = []
 
+            outputs_list = []
+            train_labels_list = []
+            
             for train_input, train_labels in tqdm.tqdm(train_dataloader):
                 train_labels = train_labels.to(device)
                 train_input = train_input.to(device)
                 outputs = self.model(train_input)
-                
+                torch_outputs_class = torch.zeros(size=train_labels.shape)
                 batch_loss = 0
-                predictions = []
+
                 # try:
                 for i in range(1,self.number_outputs+1):
                     y_train = train_labels[:,i-1].reshape((-1,1))
@@ -185,8 +188,11 @@ class colas_model:
                     criterion = globals()[f'criterion_output_{i}']
                     criterion = criterion.cuda()
                     globals()[f"loss_output_{i}"] = criterion(outputs[i-1],y_train)
-                    predictions.append(outputs[i-1].argmax(axis=1))
                     batch_loss += globals()[f"loss_output_{i}"]
+                    torch_outputs_class[:,i-1] = outputs[i-1].argmax(axis=1)
+                
+                outputs_list+=torch_outputs_class.detach().cpu().numpy().tolist()
+                train_labels_list+=train_labels.detach().cpu().numpy().tolist()
                 # except:
                 #     ipdb.set_trace()
 
@@ -198,7 +204,7 @@ class colas_model:
                 
                 # ipdb.set_trace()
                 
-                #accuracy_train = compute_accuracy_values(train_labels, outputs)
+                # accuracy_train = compute_accuracy_values(train_labels, outputs)
                 # total_acc_train += list(accuracy_train)
 
                 self.model.zero_grad()
@@ -207,7 +213,7 @@ class colas_model:
 
             total_acc_val = []
             total_loss_val = 0
-
+            ipdb.set_trace()
             with torch.no_grad():
                 for val_input, val_labels in val_dataloader:
 
