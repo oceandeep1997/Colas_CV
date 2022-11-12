@@ -12,6 +12,7 @@ import tqdm
 import ipdb
 import sys
 import pandas as pd
+from sklearn.metrics import f1_score, accuracy_score, recall_score, precision_score
 
 
 def create_image_transform(random_size_crop: int = 224):
@@ -175,6 +176,7 @@ class colas_model:
                 outputs = self.model(train_input)
                 
                 batch_loss = 0
+                predictions = []
                 # try:
                 for i in range(1,self.number_outputs+1):
                     y_train = train_labels[:,i-1].reshape((-1,1))
@@ -183,6 +185,7 @@ class colas_model:
                     criterion = globals()[f'criterion_output_{i}']
                     criterion = criterion.cuda()
                     globals()[f"loss_output_{i}"] = criterion(outputs[i-1],y_train)
+                    predictions.append(outputs[i-1].argmax(axis=1))
                     batch_loss += globals()[f"loss_output_{i}"]
                 # except:
                 #     ipdb.set_trace()
@@ -192,10 +195,11 @@ class colas_model:
                 # except:
                 #     ipdb.set_trace()
                 total_loss_train += batch_loss
-                ipdb.set_trace()
                 
-                accuracy_train = compute_accuracy_values(train_labels, outputs)
-                total_acc_train += list(accuracy_train)
+                # ipdb.set_trace()
+                
+                #accuracy_train = compute_accuracy_values(train_labels, outputs)
+                # total_acc_train += list(accuracy_train)
 
                 self.model.zero_grad()
                 batch_loss.backward()
