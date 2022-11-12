@@ -172,6 +172,9 @@ class colas_model:
 
             outputs_list = []
             train_labels_list = []
+
+            outputs_val_list = []
+            val_labels_list = []
             
             for train_input, train_labels in tqdm.tqdm(train_dataloader):
                 train_labels = train_labels.to(device)
@@ -219,28 +222,49 @@ class colas_model:
 
                     val_labels = val_labels.to(device)
                     val_input = val_input.to(device)
-
                     outputs = self.model(val_input)
-                    
+                    torch_outputs_class = torch.zeros(size=train_labels.shape)
                     batch_loss = 0
+                    
                     for i in range(1,self.number_outputs+1):
-                        globals()[f"loss_output_{i}"] = globals()[f'criterion_output_{i}'](outputs[i],train_labels[i])
+                        y_val = val_labels[:,i-1].reshape((-1,1))
+                        y_val = torch.concat((y_val, 1-y_val),axis=1)
+                        criterion = globals()[f'criterion_output_{i}']
+                        criterion = criterion.cuda()
+                        globals()[f"loss_output_{i}"] = criterion(outputs[i-1],y_val)
                         batch_loss += globals()[f"loss_output_{i}"]
+                        torch_outputs_class[:,i-1] = outputs[i-1].argmax(axis=1)
+
+                    outputs_val_list+=torch_outputs_class.detach().cpu().numpy().tolist()
+                    val_labels_list+=val_labels.detach().cpu().numpy().tolist()
                     # batch_loss = global_criterion(outputs, val_labels)
                     total_loss_val += batch_loss.item()
 
-                    accuracy_batch = compute_accuracy_values(val_labels, outputs)
-                    total_acc_val += list(accuracy_batch)
+            f1_scores_train = np.zeros(self.number_outputs)
+            f1_scores_val = np.zeros(self.number_outputs)
+            
+            y_true_train = pd.DataFrame(train_labels_list)
+            y_true_val = pd.DataFrame(val_labels_list)
+            y_preds_train = pd.DataFrame(outputs_list)
+            y_preds_val = pd.DataFrame(outputs_val_list)
+
+
+            for i in range(self.number_outputs):
+                f1_scores_train[i] = f1_score(y_true_train.iloc[:,i],y_preds_train.iloc[:,i])
+                f1_scores_val[i] = f1_score(y_true_val.iloc[:,i],y_preds_val.iloc[:,i])
+
+                    # accuracy_batch = compute_accuracy_values(val_labels, outputs)
+                    # total_acc_val += list(accuracy_batch)
             try:
-                train_accuracy = (
-                    pd.DataFrame(list(map(np.ravel, total_acc_train))).mean().mean()
-                )
-                test_accuracy = (
-                    pd.DataFrame(list(map(np.ravel, total_acc_val))).mean().mean()
-                )
+                # train_accuracy = (
+                #     pd.DataFrame(list(map(np.ravel, total_acc_train))).mean().mean()
+                # )
+                # test_accuracy = (
+                #     pd.DataFrame(list(map(np.ravel, total_acc_val))).mean().mean()
+                # )
 
                 print(
-                    f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputs*len(train_data): .3f} | Train Accuracy: {train_accuracy: .3f} | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} | Val Accuracy: {test_accuracy: .3f}"""
+                    f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputs*len(train_data): .3f} | Train F1-score: {f1_scores_train.mean(): .3f} | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} | Val F1-score: {f1_scores_val.mean(): .3f}"""
                 )
             except:
                 ipdb.set_trace()
@@ -309,60 +333,3 @@ class colas_model:
 
         return predictions
 
-        # print('-' * 10)
-
-        # # Each epoch has a training and validation phase
-        # for phase in ['train', 'val']:
-        #     if phase == 'train':
-        #         self.model.train()  # Set model to training mode
-        #     else:
-        #         self.model.eval()   # Set model to evaluate mode
-
-        #     running_loss = 0.0
-        #     running_corrects = 0
-
-        #     # Iterate over data.
-        #     for inputs, labels in dataloaders[phase]:
-        #         inputs = inputs.to(device)
-        #         labels = labels.to(device)
-
-        #         # zero the parameter gradients
-        #         optimizer.zero_grad()
-
-        #         # forward
-        #         # track history if only in train
-        #         with torch.set_grad_enabled(phase == 'train'):
-        #             outputs = model(inputs)
-        #             _, preds = torch.max(outputs, 1)
-        #             loss = criterion(outputs, labels)
-
-        #             # backward + optimize only if in training phase
-        #             if phase == 'train':
-        #                 loss.backward()
-        #                 optimizer.step()
-
-        #         # statistics
-        #         running_loss += loss.item() * inputs.size(0)
-        #         running_corrects += torch.sum(preds == labels.data)
-        #     if phase == 'train':
-        #         scheduler.step()
-
-        #     epoch_loss = running_loss / dataset_sizes[phase]
-        #     epoch_acc = running_corrects.double() / dataset_sizes[phase]
-
-        #     print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-
-        #     # deep copy the model
-        #     if phase == 'val' and epoch_acc > best_acc:
-        #         best_acc = epoch_acc
-        #         best_model_wts = copy.deepcopy(model.state_dict())
-
-        # print()
-
-        # time_elapsed = time.time() - since
-        # print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-        # print(f'Best val Acc: {best_acc:4f}')
-
-        # # load best model weights
-        # model.load_state_dict(best_model_wts)
-        # return model
