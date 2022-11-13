@@ -15,6 +15,7 @@ from tqdm import tqdm
 import ipdb
 import sys
 from model_building.model_creation import *
+from model_building.multi_output_model import *
 import config
 import pandas as pd
 # from tensorflow.keras.utils import load_img
@@ -32,19 +33,18 @@ if __name__ == "__main__":
     class_proportions = np.flip(df_train.iloc[:,1:].apply(pd.Series.value_counts).T.values,axis=1)
     class_weights = 1 / (class_proportions / class_proportions.sum(axis=1).reshape((-1,1)))
     class_weights = torch.tensor(class_weights)
-    train_transform = create_image_transform()
-    train_dataset = Colas_Dataset(
-        df_train, os.path.join(dataset_path, "train"), transform=train_transform
-    )
-    val_dataset = Colas_Dataset(
-        df_val, os.path.join(dataset_path, "train"), transform=train_transform
-    )
-    model_cnn = multi_output_model()
-    colas_model = colas_model(model_cnn, 5)
+    # train_transform = create_image_transform()
+    # train_dataset = Colas_Dataset(
+    #     df_train, os.path.join(dataset_path, "train"), transform=train_transform
+    # )
+    # val_dataset = Colas_Dataset(
+    #     df_val, os.path.join(dataset_path, "train"), transform=train_transform
+    # )
+    colas_model = multi_output_model_colas(df_train.shape[1])
     colas_model.train(
-        train_data=train_dataset,
-        val_data=val_dataset,
-        class_imbalances=class_weights,
+        df_train=df_train,
+        df_val=df_val,
         learning_rate=config.learning_rate,
         batch_size=config.batch_size,
+        dataset_path=config.dataset_path
     )
