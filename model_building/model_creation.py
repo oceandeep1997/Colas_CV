@@ -118,7 +118,8 @@ class colas_model_single_output:
 
             total_loss_train = 0
             total_acc_train = []
-
+            list_outputs = []
+            list_train_labels = []
             for train_input, train_labels in tqdm.tqdm(train_dataloader):
                 train_labels = train_labels.to(device)
                 train_input = train_input.to(device)
@@ -130,6 +131,9 @@ class colas_model_single_output:
                     ipdb.set_trace()
                 total_loss_train += batch_loss
 
+                list_outputs+=(1*(outputs>0.5)).detach().cpu().numpy().tolist()
+                list_train_labels += train_labels.detach().cpu().numpy().tolist()
+
                 accuracy_train = compute_accuracy_values(train_labels, outputs)
                 total_acc_train += list(accuracy_train)
 
@@ -139,7 +143,8 @@ class colas_model_single_output:
 
             total_acc_val = []
             total_loss_val = 0
-
+            list_outputs_val = []
+            list_val_labels = []
             with torch.no_grad():
                 for val_input, val_labels in val_dataloader:
 
@@ -153,6 +158,8 @@ class colas_model_single_output:
 
                     accuracy_batch = compute_accuracy_values(val_labels, outputs)
                     total_acc_val += list(accuracy_batch)
+                    list_outputs_val+=(1*(outputs>0.5)).detach().cpu().numpy().tolist()
+                    list_val_labels += train_labels.detach().cpu().numpy().tolist()
             try:
                 train_accuracy = (
                     pd.DataFrame(list(map(np.ravel, total_acc_train))).mean().mean()
