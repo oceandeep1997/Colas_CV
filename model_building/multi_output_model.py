@@ -24,10 +24,12 @@ class multi_output_model_colas:
         train_columns = df_train.columns
         for i in range(self.number_classes):
             colonnes = [train_columns[0], train_columns[i+1]]
+            
+            transform = create_image_transform()
             train_data = df_train[colonnes]
-            train_data = Colas_Dataset(train_data)
+            train_data = Colas_Dataset(train_data,os.path.join(dataset_path,"train"),transform)
             val_data = df_val[colonnes]
-            val_data = Colas_Dataset(val_data)
+            val_data = Colas_Dataset(val_data,os.path.join(dataset_path,"train"),transform)
             self.models[i].train(train_data, val_data,learning_rate, batch_size, num_epochs)
     
     def predict_proba(self, df_test, batch_size):
