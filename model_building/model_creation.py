@@ -85,17 +85,15 @@ class single_output_model(nn.Module):
 data_dir = "/data/train"
 
 
-class colas_model:
-    def __init__(self, model: multi_output_model, number_outputs: int = 5) -> None:
+class colas_model_single_output:
+    def __init__(self, model: single_output_model) -> None:
         self.model = model
-        self.number_outputs = number_outputs
         self.is_model_trained = False
 
     def train(
         self,
         train_data: Colas_Dataset,
         val_data: Colas_Dataset,
-        class_imbalances: torch.Tensor,
         learning_rate: float,
         batch_size: int = 32,
         num_epochs=25,
@@ -104,15 +102,15 @@ class colas_model:
         val_dataloader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
 
         optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
-        global_criterion = nn.BCELoss(class_imbalances)
+        global_criterion = nn.BCELoss()
         # for i in range(1,self.number_outputs+1):
         #     globals[f'criterion_output_{i}'] = nn.BCELoss()
-
+        # adding nothing weird stuff
+    
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
         if use_cuda:
             self.model = self.model.cuda()
-            # globals[f'criterion_output_{i}'] = globals[f'criterion_output_{i}'].cuda()
             global_criterion = global_criterion.cuda()
 
         for epoch in range(num_epochs):
@@ -125,10 +123,6 @@ class colas_model:
                 train_labels = train_labels.to(device)
                 train_input = train_input.to(device)
                 outputs = self.model(train_input)
-                # batch_loss = 0
-                # for i in self.number_outputs:
-                #     globals[f"loss_output_{i}"] = globals[f'criterion_output_{i}'](outputs[i],train_labels[i])
-                #     batch_loss += globals[f"loss_output_{i}"]
 
                 try:
                     batch_loss = global_criterion(outputs, train_labels)
