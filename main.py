@@ -23,9 +23,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 # dataset_path = "/home/jovyan/hfactory_magic_folders/colas_data_challenge/computer_vision_challenge/dataset/"
-dataset_path = os.path.join("Data","images_train_subset")
+# dataset_path = os.path.join("Data","images_train_subset")
 if __name__ == "__main__":
-    train_labels = pd.read_csv("labels_train.csv")
+    train_labels = pd.read_csv(os.path.join(config.dataset_path,"labels_train.csv"))
     df_train, df_val, df_test = np.split(
         train_labels.sample(frac=1, random_state=42),
         [int(0.8 * len(train_labels)), int(0.9 * len(train_labels))],
