@@ -12,6 +12,7 @@ import tqdm
 import ipdb
 import sys
 import pandas as pd
+from sklearn.metrics import f1_score
 
 
 def create_image_transform(random_size_crop: int = 224):
@@ -131,8 +132,8 @@ class colas_model_single_output:
                     ipdb.set_trace()
                 total_loss_train += batch_loss
 
-                list_outputs+=(1*(outputs>0.5)).detach().cpu().numpy().tolist()
-                list_train_labels += train_labels.detach().cpu().numpy().tolist()
+                list_outputs+=[element[0] for element in (1*(outputs>0.5)).detach().cpu().numpy().tolist()]
+                list_train_labels += [element[0] for element in train_labels.detach().cpu().numpy().tolist()]
 
                 accuracy_train = compute_accuracy_values(train_labels, outputs)
                 total_acc_train += list(accuracy_train)
@@ -158,23 +159,28 @@ class colas_model_single_output:
 
                     accuracy_batch = compute_accuracy_values(val_labels, outputs)
                     total_acc_val += list(accuracy_batch)
-                    list_outputs_val+=(1*(outputs>0.5)).detach().cpu().numpy().tolist()
-                    list_val_labels += train_labels.detach().cpu().numpy().tolist()
+                    list_outputs_val+=[element[0] for element in (1*(outputs>0.5)).detach().cpu().numpy().tolist()]
+                    list_val_labels += [element[0] for element in val_labels.detach().cpu().numpy().tolist()]
             try:
-                train_accuracy = (
-                    pd.DataFrame(list(map(np.ravel, total_acc_train))).mean().mean()
-                )
-                test_accuracy = (
-                    pd.DataFrame(list(map(np.ravel, total_acc_val))).mean().mean()
-                )
+#                 train_accuracy = (
+#                     pd.DataFrame(list(map(np.ravel, total_acc_train))).mean().mean()
+#                 )
+#                 test_accuracy = (
+#                     pd.DataFrame(list(map(np.ravel, total_acc_val))).mean().mean()
+#                 )
 
-                print(
-                    f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputs*len(train_data): .3f} | Train Accuracy: {train_accuracy: .3f} | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} | Val Accuracy: {test_accuracy: .3f}"""
-                )
+#                 print(
+#                     f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputs*len(train_data): .3f} | Train Accuracy: {train_accuracy: .3f} | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} | Val Accuracy: {test_accuracy: .3f}"""
+#                 )
+                f1_score_val = f1_score(list_val_labels, list_outputs_val)
+                f1_score_train = f1_score(list_train_labels, list_outputs)
+                print(f"f1_score_train = {f1_score_train : .3f} and f1_score_val = {f1_score_val: .3f}")
             except:
+                print("mistake here")
                 ipdb.set_trace()
 
         self.is_model_trained = True
+        return f1_score_val
 
     def predict_proba(
         self,
