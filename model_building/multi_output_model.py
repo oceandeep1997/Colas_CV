@@ -9,7 +9,7 @@ class multi_output_model_colas:
         self.number_classes = number_classes
         models = []
         for i in range(self.number_classes):
-            model_cnn = single_output_model()
+            model_cnn = single_output_model_vgg()
             models.append(colas_model_single_output(model_cnn))
         self.models = models
 

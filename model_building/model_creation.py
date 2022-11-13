@@ -14,17 +14,19 @@ import ipdb
 import sys
 import pandas as pd
 from sklearn.metrics import f1_score
+import config
 
 
-def create_image_transform(random_size_crop: int = 224):
+def create_image_transform(random_size_crop: int = 256):
     train_transforms = transforms.Compose(
         [
             transforms.ToPILImage(),
             transforms.RandomResizedCrop(random_size_crop),
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomVerticalFlip(p=0.5),
+            # transforms.CenterCrop(random_size_crop),
+            transforms.RandomHorizontalFlip(p=0.1),
+            transforms.RandomVerticalFlip(p=0.1),
             transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])#((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
     )
     return train_transforms
@@ -43,6 +45,7 @@ class Colas_Dataset(Dataset):
     def __init__(self, data, path, transform=None):
         super().__init__()
         self.data = data.values
+        self.labels = data.iloc[:,1].values
         self.path = path
         self.transform = transform
 
@@ -60,9 +63,12 @@ class Colas_Dataset(Dataset):
 
     def classes_imbalance_sampler(self):
         targets = self.labels
-        class_sample_count = np.array(
-            [len(np.where(targets == t)[0]) for t in np.arange(0, max(targets) + 1)]
-        )
+        try:
+            class_sample_count = np.array(
+                [len(np.where(targets == t)[0]) for t in np.arange(0, max(targets) + 1)]
+            )
+        except:
+            ipdb.set_trace()
         weight = 1.0 / (class_sample_count + 0.1)
         # ipdb.set_trace()
         weights = list()
@@ -77,6 +83,32 @@ class Colas_Dataset(Dataset):
         sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
         return sampler
 
+    
+class single_output_model_vgg(nn.Module):
+    def __init__(
+        self, neuron_mid_layer: int = 40, dropout: float = 0.4, 
+    ) -> None:
+        super(single_output_model_vgg, self).__init__()
+        self.model = models.vgg16(pretrained=True)
+        for param in self.model.parameters():
+            param.requires_grad = False
+        number_features = self.model.classifier[6].out_features
+        # self.model_resnet.fc = nn.Identity()
+        self.middle_layer = nn.Linear(number_features, neuron_mid_layer)
+        self.relu_middle_layer = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+        self.fc1 = nn.Linear(neuron_mid_layer, 1)
+        self.final_sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.model(x)
+        x = self.middle_layer(x)
+        x = self.relu_middle_layer(x)
+        x = self.dropout(x)
+        x = self.fc1(x)
+        x = self.final_sigmoid(x)
+        return x
+    
 class single_output_model(nn.Module):
     def __init__(
         self, neuron_mid_layer: int = 40, dropout: float = 0.4, 
@@ -117,7 +149,7 @@ class colas_model_single_output:
         learning_rate: float,
         use_samplers: bool = True, 
         batch_size: int = 32,
-        num_epochs=25,
+        num_epochs=config.number_epochs,
     ):
 
         if use_samplers:
@@ -130,10 +162,10 @@ class colas_model_single_output:
                 val_data, batch_size=batch_size, sampler=val_sampler
             )            
         else:
-        train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-        val_dataloader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
+            train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+            val_dataloader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
 
-        optimizer = torch.optim.Adamax(self.model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         global_criterion = nn.BCELoss()
         # for i in range(1,self.number_outputs+1):
         #     globals[f'criterion_output_{i}'] = nn.BCELoss()
