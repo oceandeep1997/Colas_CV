@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.sampler import WeightedRandomSampler
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
@@ -57,6 +58,24 @@ class Colas_Dataset(Dataset):
             image = self.transform(image)
         return image, labels
 
+    def classes_imbalance_sampler(self):
+        targets = self.labels
+        class_sample_count = np.array(
+            [len(np.where(targets == t)[0]) for t in np.arange(0, max(targets) + 1)]
+        )
+        weight = 1.0 / (class_sample_count + 0.1)
+        # ipdb.set_trace()
+        weights = list()
+        for t in targets:
+            try:
+                weights.append(weight[t])
+            except:
+                ipdb.set_trace()
+        samples_weight = np.array(weights)
+        samples_weight = torch.from_numpy(samples_weight)
+        samples_weight = samples_weight.double()
+        sampler = WeightedRandomSampler(samples_weight, len(samples_weight))
+        return sampler
 
 class single_output_model(nn.Module):
     def __init__(
@@ -96,9 +115,21 @@ class colas_model_single_output:
         train_data: Colas_Dataset,
         val_data: Colas_Dataset,
         learning_rate: float,
+        use_samplers: bool = True, 
         batch_size: int = 32,
         num_epochs=25,
     ):
+
+        if use_samplers:
+            train_sampler = train_data.classes_imbalance_sampler()
+            val_sampler = val_data.classes_imbalance_sampler()
+            train_dataloader = torch.utils.data.DataLoader(
+                train_data, batch_size=batch_size, sampler=train_sampler
+            )
+            val_dataloader = torch.utils.data.DataLoader(
+                val_data, batch_size=batch_size, sampler=val_sampler
+            )            
+        else:
         train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
         val_dataloader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
 
