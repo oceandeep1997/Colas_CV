@@ -47,4 +47,10 @@ if __name__ == "__main__":
         learning_rate=config.learning_rate,
         batch_size=config.batch_size,
         dataset_path=config.dataset_path
-    )
+    ) 
+    df_test = pd.read_csv(os.path.join(config.dataset_path,"template_test.csv"))
+    try:
+        predictions = colas_model.predict(df_test, config.batch_size)
+    except:
+        ipdb.set_trace()
+    ipdb.set_trace()
