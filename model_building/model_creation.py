@@ -407,22 +407,26 @@ class colas_model_single_output:
             )
             sys.exit()
 
-        test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
 
         if use_cuda:
             self.model = self.model.cuda()
-
+        
+        
         predictions = []
-        with torch.no_grad():
+        try:
+            with torch.no_grad():
 
-            for test_input, test_label in test_dataloader:
+                for test_input, test_label in test_dataloader:
 
-                test_label = test_label.to(device)
-                test_input = test_input.to(device)
+                    test_label = test_label.to(device)
+                    test_input = test_input.to(device)
 
-                outputs = self.model(test_input)
-                predictions.append((1 * (outputs > 0.5)).detach().cpu().numpy())
-
+                    outputs = self.model(test_input)
+                    predictions.append((1 * (outputs > 0.5)).detach().cpu().numpy())
+        except:
+            ipdb.set_trace()
+        
         return predictions
