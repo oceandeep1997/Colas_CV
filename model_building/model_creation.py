@@ -13,7 +13,7 @@ import tqdm
 import ipdb
 import sys
 import pandas as pd
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 import config
 
 
@@ -21,10 +21,12 @@ def create_image_transform(random_size_crop: int = 256):
     train_transforms = transforms.Compose(
         [
             transforms.ToPILImage(),
-            transforms.RandomResizedCrop(random_size_crop),
+            transforms.Resize(random_size_crop),
             # transforms.CenterCrop(random_size_crop),
-            transforms.RandomHorizontalFlip(p=0.1),
-            transforms.RandomVerticalFlip(p=0.1),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomVerticalFlip(p=0.5),
+            transforms.RandomAutocontrast(p=0.5),
+            # transforms.RandomAdjustSharpness(sharpness_factor=2, p=0.5),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])#((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ]
@@ -94,17 +96,26 @@ class single_output_model_vgg(nn.Module):
             param.requires_grad = False
         number_features = self.model.classifier[6].out_features
         # self.model_resnet.fc = nn.Identity()
-        self.middle_layer = nn.Linear(number_features, neuron_mid_layer)
+        self.first_layer = nn.Linear(number_features, int(number_features/2))
+        self.first_relu = nn.ReLU()
+        self.batch_norm_1 = nn.BatchNorm1d(int(number_features/2))
+        self.middle_layer = nn.Linear(int(number_features/2), neuron_mid_layer)
         self.relu_middle_layer = nn.ReLU()
+        self.batch_norm_2 = nn.BatchNorm1d(neuron_mid_layer)
         self.dropout = nn.Dropout(dropout)
         self.fc1 = nn.Linear(neuron_mid_layer, 1)
         self.final_sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         x = self.model(x)
+        x = self.first_layer(x)
+        x = self.first_relu(x)
+        x = self.dropout(x)
+        x = self.batch_norm_1(x)
         x = self.middle_layer(x)
         x = self.relu_middle_layer(x)
         x = self.dropout(x)
+        x = self.batch_norm_2(x)
         x = self.fc1(x)
         x = self.final_sigmoid(x)
         return x
@@ -225,19 +236,12 @@ class colas_model_single_output:
                     list_outputs_val+=[element[0] for element in (1*(outputs>0.5)).detach().cpu().numpy().tolist()]
                     list_val_labels += [element[0] for element in val_labels.detach().cpu().numpy().tolist()]
             try:
-#                 train_accuracy = (
-#                     pd.DataFrame(list(map(np.ravel, total_acc_train))).mean().mean()
-#                 )
-#                 test_accuracy = (
-#                     pd.DataFrame(list(map(np.ravel, total_acc_val))).mean().mean()
-#                 )
-
-#                 print(
-#                     f"""Epochs: {epoch + 1} | Train Loss: {total_loss_train / self.number_outputs*len(train_data): .3f} | Train Accuracy: {train_accuracy: .3f} | Val Loss: {total_loss_val / self.number_outputs*len(val_data): .3f} | Val Accuracy: {test_accuracy: .3f}"""
-#                 )
                 f1_score_val = f1_score(list_val_labels, list_outputs_val)
                 f1_score_train = f1_score(list_train_labels, list_outputs)
+                recall_score_val = recall_score(list_val_labels, list_outputs_val)
+                precision_score_val = precision_score(list_val_labels, list_outputs_val)
                 print(f"f1_score_train = {f1_score_train : .3f} and f1_score_val = {f1_score_val: .3f}")
+                print(f"recall validation {recall_score_val:.3f}, precision_score val : {precision_score_val:.3f}")
             except:
                 print("mistake here")
                 ipdb.set_trace()
