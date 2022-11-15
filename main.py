@@ -26,10 +26,12 @@ from sklearn.model_selection import train_test_split
 # dataset_path = os.path.join("Data","images_train_subset")
 if __name__ == "__main__":
     train_labels = pd.read_csv(os.path.join(config.dataset_path,"labels_train.csv"))
+    # train_labels = train_labels.iloc[:,:3]
     df_train, df_val, df_test = np.split(
         train_labels.sample(frac=1, random_state=42),
         [int(0.8 * len(train_labels)), int(0.9 * len(train_labels))],
     )
+    # ipdb.set_trace()
     class_proportions = np.flip(df_train.iloc[:,1:].apply(pd.Series.value_counts).T.values,axis=1)
     class_weights = 1 / (class_proportions / class_proportions.sum(axis=1).reshape((-1,1)))
     class_weights = torch.tensor(class_weights)
@@ -45,12 +47,11 @@ if __name__ == "__main__":
         df_train=df_train,
         df_val=df_val,
         learning_rate=config.learning_rate,
+        use_samplers = True,
         batch_size=config.batch_size,
         dataset_path=config.dataset_path
     ) 
     df_test = pd.read_csv(os.path.join(config.dataset_path,"template_test.csv"))
-    try:
-        predictions = colas_model.predict(df_test, config.batch_size)
-    except:
-        ipdb.set_trace()
+
+    predictions = colas_model.predict(df_test, config.batch_size)
     ipdb.set_trace()

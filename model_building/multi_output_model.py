@@ -18,8 +18,9 @@ class multi_output_model_colas:
         df_train,
         df_val,
         learning_rate,
-        batch_size,
-        dataset_path,
+        use_samplers = True,
+        batch_size=config.batch_size,
+        dataset_path=config.dataset_path,
         num_epochs = config.number_epochs,
     ):
         train_columns = df_train.columns
@@ -32,29 +33,34 @@ class multi_output_model_colas:
             train_data = Colas_Dataset(train_data,os.path.join(dataset_path,"train"),transform)
             val_data = df_val[colonnes]
             val_data = Colas_Dataset(val_data,os.path.join(dataset_path,"train"),transform)
-            f1_score_val = self.models[i].train(train_data, val_data,learning_rate, batch_size, num_epochs)
+            f1_score_val = self.models[i].train(train_data, val_data,learning_rate,use_samplers, batch_size, num_epochs)
             print(f"for {train_columns[i+1]}, the f1_score of val set is {f1_score_val:.3f}")
             print("\n")
             print("\n")
     
     def predict_proba(self, df_test, batch_size):
         test_columns = df_test.columns
-        predictions = np.array((len(df_test, self.number_classes)))
+        predictions = np.zeros((len(df_test), self.number_classes))
         for i in range(self.number_classes):
+            transform = create_image_transform()
             colonnes = [test_columns[0], test_columns[i+1]]
             test_data = df_test[colonnes]
-            test_data = Colas_Dataset(test_data)
+            test_data = Colas_Dataset(test_data,os.path.join(config.dataset_path,"test"),transform)
             y_pred_proba = self.models[i].predict_proba(test_data, batch_size)
             predictions[:,i] = np.array(y_pred_proba)
         return predictions
     
     def predict(self, df_test, batch_size):
         test_columns = df_test.columns
-        predictions = np.array((len(df_test, self.number_classes)))
+        predictions = np.zeros((len(df_test), self.number_classes))
         for i in range(self.number_classes):
+            transform = create_image_transform()
             colonnes = [test_columns[0], test_columns[i+1]]
             test_data = df_test[colonnes]
-            test_data = Colas_Dataset(test_data)
+            test_data = Colas_Dataset(test_data, os.path.join(config.dataset_path,"test"),transform)
+            print("everything all good, mistake in model.predict")
+
             y_pred = self.models[i].predict(test_data, batch_size)
+            y_pred = [ element[i][0][0] for element in y_pred for i in element]
             predictions[:,i] = np.array(y_pred)
         return predictions

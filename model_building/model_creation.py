@@ -73,7 +73,7 @@ class Colas_Dataset(Dataset):
             - path: data path
             - transform: torch transforms.Compose pipeline, by default non-used
         """
-        super().__init__()
+        super(Colas_Dataset,self).__init__()
         self.data = data.values
         self.labels = data.iloc[:, 1].values
         self.path = path
@@ -97,6 +97,7 @@ class Colas_Dataset(Dataset):
         image = img.imread(img_path)
         if self.transform is not None:
             image = self.transform(image)
+        # ipdb.set_trace()
         return image, labels
 
     def classes_imbalance_sampler(self) -> WeightedRandomSampler:
@@ -219,7 +220,7 @@ class colas_model_single_output:
         val_data: Colas_Dataset,
         learning_rate: float,
         use_samplers: bool = True,
-        batch_size: int = 32,
+        batch_size: int = 64,
         num_epochs=config.number_epochs,
     ):
         """
@@ -236,7 +237,7 @@ class colas_model_single_output:
         returns:
             - f1_score_val : float, f1-score for validation set
         """
-
+        print(batch_size)
         if use_samplers:
             train_sampler = train_data.classes_imbalance_sampler()
             val_sampler = val_data.classes_imbalance_sampler()
@@ -274,9 +275,9 @@ class colas_model_single_output:
             for train_input, train_labels in tqdm.tqdm(train_dataloader):
                 train_labels = train_labels.to(device)
                 train_input = train_input.to(device)
-                outputs = self.model(train_input)
-
+                
                 try:
+                    outputs = self.model(train_input)
                     batch_loss = global_criterion(outputs, train_labels)
                 except:
                     ipdb.set_trace()
@@ -366,7 +367,7 @@ class colas_model_single_output:
             )
             sys.exit()
 
-        test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
+        test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda" if use_cuda else "cpu")
 
@@ -416,17 +417,14 @@ class colas_model_single_output:
         
         
         predictions = []
-        try:
-            with torch.no_grad():
+        with torch.no_grad():
+            
+            for test_input, test_label in test_dataloader:
+                test_label = test_label.to(device)
+                test_input = test_input.to(device)
 
-                for test_input, test_label in test_dataloader:
+                outputs = self.model(test_input)
+                predictions.append((1 * (outputs > 0.5)).detach().cpu().numpy())
 
-                    test_label = test_label.to(device)
-                    test_input = test_input.to(device)
-
-                    outputs = self.model(test_input)
-                    predictions.append((1 * (outputs > 0.5)).detach().cpu().numpy())
-        except:
-            ipdb.set_trace()
         
         return predictions
