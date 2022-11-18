@@ -24,33 +24,45 @@ from keras import backend as K
 def oversampler(X, y):    
     X = list(X)
     counter = int(y.mean() * len(y))
+    angles = [90, 180, 270]
+    i = 0
+    angle = 90
     while counter / len(y) < 0.5:
         for i in range(len(y)):
             if y[i] == 1:
-                X.append(X[i])
+                # get dims, find center
+                image = X[i]
+                (h, w) = image.shape[:2]
+                (cX, cY) = (w // 2, h // 2)
+
+                # grab the rotation matrix (applying the negative of the
+                # angle to rotate clockwise), then grab the sine and cosine
+                # (i.e., the rotation components of the matrix)
+                M = cv2.getRotationMatrix2D((cX, cY), angle, 1.0)
+                cos = np.abs(M[0, 0])
+                sin = np.abs(M[0, 1])
+
+                # compute the new bounding dimensions of the image
+                nW = int((h * sin) + (w * cos))
+                nH = int((h * cos) + (w * sin))
+
+                # adjust the rotation matrix to take into account translation
+                M[0, 2] += (nW / 2) - cX
+                M[1, 2] += (nH / 2) - cY
+
+                # perform the actual rotation and return the image
+                image = cv2.warpAffine(image, M, (nW, nH), False)
+
+                X.append(image)
                 y = np.append(y, y[i])
                 counter += 1
             if counter / len(y) >= 0.5:
                 break
+
+        i += 1
+        angle = angles[i%3]
     X = np.array(X)
     return X, y
-
-def recall_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    recall = true_positives / (possible_positives + K.epsilon())
-    return recall
-
-def precision_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    return precision
-
-def f1_m(y_true, y_pred):
-    precision = precision_m(y_true, y_pred)
-    recall = recall_m(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 class model_xception():
     def __init__(self):
