@@ -36,6 +36,18 @@ Finally, we can install the necessary packages from the requirements.txt file th
 pip install -r /path/to/requirements.txt
 ```
 
+# Main Features
+- A tensorflow classification model built on top of the pretrained CNN Xception with an additional dense layer
+- Functions to train and evaluate the model
+- Functions to scrape airport and runway coordinates
+- Functions to collect ORTHO photos
+- Function to perform data augmentation via image rotation
+
+# Repo organization:
+- Data folder:  geospatial vector files of airports and runways
+- model_building folder : python scripts in which the python classes used to create the model are defined
+- notebooks : folder containing the different notebooks used for data collection, data augmentation and data analysis
+
 # Examples
 A Jupyter Notebook that showcases the use of the different classes and functions has been created. It can be found in the "notebooks"  folder
 
